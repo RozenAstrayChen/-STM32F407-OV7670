@@ -122,6 +122,8 @@ u16 LCD_BGR2RGB(u16 c);
 void LCD_SetParam(void);
 void ILI9341G_BackLed_Control(FunctionalState enumState);
 void LCD_WR_REG(u16 data);
+//add to scan screen
+void LCD_Scan_Dir(u8 dir);
 
 //如果仍然觉得速度不够快，可以使用下面的宏定义,提高速度.
 //注意要去掉lcd.c中void LCD_WR_DATA(u16 data)函数定义哦

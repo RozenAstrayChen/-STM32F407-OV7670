@@ -42,4 +42,5 @@
 ..\output\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
 ..\output\main.o: ..\Hardware\ov7670\ov7670.h
 ..\output\main.o: ..\..\00-My_lib\GUI\test.h
+..\output\main.o: ..\Hardware\timer\timer.h
 ..\output\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h

@@ -6,52 +6,13 @@
 #include "lcd.h"
 #include "ov7670.h"
 #include "test.h"
+#include "timer.h"
 #include <stdbool.h>
-
+u8 ov_frame;
 static volatile bool frame_flag = false;
 static volatile bool send_sync_frame = false;
 volatile uint8_t temp_buffer[IMG_ROWS * IMG_COLUMNS];
-/*************************************************************************************
-  * 函数名称：dumpFrame
-  * 参数    ：void
-  * 返回值  ：void
-  * 描述    ：receive image
-  *************************************************************************************/
-void dumpFrame(void) {
 
-	uint8_t *buffer = (uint8_t *) frame_buffer;
-	int length = IMG_ROWS * IMG_COLUMNS * 2;
-	// Copy every other byte from the main frame buffer to our temporary buffer (this converts the image to grey scale)
-	int i;
-	for (i = 1; i < length; i += 2) {
-		temp_buffer[i / 2] = buffer[i];
-	}
-	// We only send the sync frame if it has been requested
-	if (send_sync_frame) {
-		for (i = 0x7f; i > 0; i--) {
-			uint8_t val = i;
-			//Serial_sendb(&val);
-			printf("%s",&val);
-		}
-		send_sync_frame = false;
-	}
-
-	for (i = 0; i < (length / 2); i++) {
-		if (i > 100) {
-			//Serial_sendb(&temp_buffer[i]);
-			printf("%s",&temp_buffer[i]);
-		} else {
-			uint8_t val = 0xff;
-			//Serial_sendb(&val); // Change first 100 pixels to white to provide a reference for where the frame starts
-			printf("%s",&val);
-		}
-	}
-	// Enable capture and DMA after we have sent the photo. This is a workaround for the timing issues I've been having where
-	// the DMA transfer is not in sync with the frames being sent
-	DMA_Cmd(DMA2_Stream1, ENABLE);
-	DCMI_Cmd(ENABLE);
-	DCMI_CaptureCmd(ENABLE);
-}
 /*************************************************************************************
   * brief：main()
   * param    ：void
@@ -60,15 +21,17 @@ void dumpFrame(void) {
   *************************************************************************************/
 int main(void)
 { 
-	SystemInit();			                     //CLOCK is 168Mhz
+	//SystemInit();			                     //CLOCK is 168Mhz
 	LED_GPIO_Conf();										   
 	SysTick_Init();
 	LCD_Init();
+	main_test();
   USART1_Conf();
+	TIM3_Int_Init(10000-1,8400-1);//10Khz计数,1秒钟中断一次
   
   delay_ms(100);
 
- 	printf("\r 123！\r\n");
+ 	printf("\r start init OV7670\r\n");
 
  	//LCD_String(20,20,"DCMI Camera demo",RED);
 	if(OV7670_Init())
@@ -86,40 +49,61 @@ int main(void)
 	delay_ms(1000);
 	LCD_Clear(BLUE);
 	Cam_Start();
-  /*while(1){
+  //while(1){
 		//main_test();
-		LED1(On);
-		delay_ms(300);
-		LED1(Off);
-		delay_ms(300);
+		//LED1(On);
+		//delay_ms(300);
+		//LED1(Off);
+		//delay_ms(300);
 		
-	}*/
+	
 	// Infinite program loop
 	while (1) {
-		if (frame_flag == true) {
-			frame_flag = false;
-			dumpFrame();
-		}
+		
 	}
 }
-
+/**
+  * @brief   DMA receive
+  * @param  None
+  * @retval None
+  */
+void DMA2_Stream1_IRQHandler(void)
+{        
+	if(DMA_GetFlagStatus(DMA2_Stream1,DMA_FLAG_TCIF1)==SET)//DMA2_Steam1,传输完成标志
+	{  
+		 DMA_ClearFlag(DMA2_Stream1,DMA_FLAG_TCIF1);//清除传输完成中断
+			//datanum++;
+	}    											 
+}  
+/**
+  * @brief   DCMIReceive data
+  * @param  None
+  * @retval None
+  */
 void DCMI_IRQHandler(void) {
-	if (DCMI_GetFlagStatus(DCMI_FLAG_FRAMERI) == SET) { // Frame received
-		DCMI_ClearFlag(DCMI_FLAG_FRAMERI);
-		// After receiving a full frame we disable capture and the DMA transfer. This is probably a very inefficient way of capturing and sending frames
-		// but it's the only way I've gotten to reliably work.
-		DMA_Cmd(DMA2_Stream1, DISABLE);
-		DCMI_Cmd(DISABLE);
-		DCMI_CaptureCmd(DISABLE);
-	}
-	if (DCMI_GetFlagStatus(DCMI_FLAG_OVFRI) == SET) { // Overflow
-		// Not used, just for debug
-		DCMI_ClearFlag(DCMI_FLAG_OVFRI);
-	}
-	if (DCMI_GetFlagStatus(DCMI_FLAG_ERRRI) == SET) { // Error
-		// Not used, just for debug
-		DCMI_ClearFlag(DCMI_FLAG_ERRRI);
-	}
+		int i=0;
+		if (DCMI_GetFlagStatus(DCMI_FLAG_FRAMERI) == SET) { // Frame received
+			DCMI_ClearFlag(DCMI_FLAG_FRAMERI);
+			// After receiving a full frame we disable capture and the DMA transfer. This is probably a very inefficient way of capturing and sending frames
+			// but it's the only way I've gotten to reliably work.
+			//DMA_Cmd(DMA2_Stream1, DISABLE);
+			//DCMI_Cmd(DISABLE);
+			//DCMI_CaptureCmd(DISABLE);
+			
+	}if (DCMI_GetITStatus(DCMI_IT_VSYNC) != RESET)
+    {
+        
+        DCMI_ClearITPendingBit(DCMI_IT_VSYNC);
+				
+   }if (DCMI_GetITStatus(DCMI_IT_LINE) != RESET)
+    {
+        DCMI_ClearITPendingBit(DCMI_IT_LINE);
+				ov_frame++;//fps++
+    }
+    if (DCMI_GetITStatus(DCMI_IT_ERR) != RESET)
+    {
+        DCMI_ClearITPendingBit(DCMI_IT_ERR);
+    }
 }
 
 /*void USART2_IRQHandler(void) {

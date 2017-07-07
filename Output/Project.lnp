@@ -6,6 +6,7 @@
 "..\output\usart.o"
 "..\output\lcd.o"
 "..\output\ov7670.o"
+"..\output\timer.o"
 "..\output\misc.o"
 "..\output\stm32f4xx_exti.o"
 "..\output\stm32f4xx_fsmc.o"
